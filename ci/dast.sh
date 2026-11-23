@@ -60,9 +60,13 @@ cp ci/zap_hooks.py ci/dast-putanje.txt "$ZAP_DIR/"
 docker pull -q "$ZAP_SLIKA"
 rc=0
 # -I: ZAP ne vraća grešku za upozorenja (odluku donosi gate); -m: minute spidera
-docker run --rm --network host -v "$ZAP_DIR:/zap/wrk:rw" \
+ZAP_MOUNT="$(cygpath -m "$(cd "$ZAP_DIR" && pwd)")"
+
+ZAP_TARGET="${URL/localhost/host.docker.internal}"
+MSYS_NO_PATHCONV=1 docker run --rm --network host \
+  --mount "type=bind,source=$ZAP_MOUNT,target=/zap/wrk" \
   -e DAST_KORISNIK -e DAST_LOZINKA \
-  "$ZAP_SLIKA" zap-baseline.py -t "$URL" -m "${ZAP_SPIDER_MINUTA:-1}" -I \
+  "$ZAP_SLIKA" zap-baseline.py -t "$ZAP_TARGET" -m "${ZAP_SPIDER_MINUTA:-1}" -I \
   -J zap.json -r zap.html -w zap.md --hook=/zap/wrk/zap_hooks.py || rc=$?
 echo "zap-baseline izlazni kod: $rc (0 = OK, 1/2 = nalazi, 3 = greška)"
 [ -f "$ZAP_DIR/zap.json" ] || { echo "::error::ZAP nije stvorio izvještaj"; exit 1; }

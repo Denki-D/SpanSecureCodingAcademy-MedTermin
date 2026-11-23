@@ -4,10 +4,11 @@ package hr.span.akademija.medtermin.platforma;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.security.spec.KeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Objects;
+
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.springframework.stereotype.Component;
@@ -66,9 +67,9 @@ public class LozinkaHasher {
 
         String[] dijelovi = spremljeniHash.split("\\$", -1);
 
-        if (dijelovi.length != 4 || !ALGORITAM.equals(dijelovi[0])) {
-            return false;
-        }
+      if (dijelovi.length != 4 || !Objects.equals(ALGORITAM, dijelovi[0])) {
+    return false;
+}
 
         byte[] sol = null;
         byte[] ocekivaniHash = null;

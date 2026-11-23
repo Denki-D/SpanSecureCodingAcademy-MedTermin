@@ -34,39 +34,33 @@ public class LijecnikController {
     }
 
     /** Popis liječnika, npr. GET /api/lijecnici?sort=prezime&smjer=asc. */
-    @GetMapping
-    public List<Lijecnik> popis(
-            @RequestParam(defaultValue = "prezime") String sort,
-            @RequestParam(defaultValue = "asc") String smjer,
-            PrijavljeniKorisnik korisnik) {
+    
+@GetMapping
+public List<Lijecnik> popis(
+        @RequestParam(defaultValue = "prezime") String sort,
+        @RequestParam(defaultValue = "asc") String smjer,
+        PrijavljeniKorisnik korisnik) {
 
-        // Dopuštamo isključivo unaprijed definirane nazive stupaca.
-        String stupac = switch (sort.trim().toLowerCase(Locale.ROOT)) {
-            case "ime" -> "ime";
-            case "prezime" -> "prezime";
-            case "specijalizacija" -> "specijalizacija";
-            default -> throw ApiException.neispravno("Nedopušteno polje za sortiranje.");
-        };
-
-        // Dopuštamo samo ASC ili DESC.
-        String redoslijed = switch (smjer.trim().toLowerCase(Locale.ROOT)) {
-            case "asc" -> "ASC";
-            case "desc" -> "DESC";
+    String sql = switch (sort.trim().toLowerCase(Locale.ROOT)) {
+        case "ime" -> switch (smjer.trim().toLowerCase(Locale.ROOT)) {
+            case "asc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY ime ASC";
+            case "desc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY ime DESC";
             default -> throw ApiException.neispravno("Nedopušteni smjer sortiranja.");
         };
+        case "prezime" -> switch (smjer.trim().toLowerCase(Locale.ROOT)) {
+            case "asc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY prezime ASC";
+            case "desc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY prezime DESC";
+            default -> throw ApiException.neispravno("Nedopušteni smjer sortiranja.");
+        };
+        case "specijalizacija" -> switch (smjer.trim().toLowerCase(Locale.ROOT)) {
+            case "asc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY specijalizacija ASC";
+            case "desc" -> "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY specijalizacija DESC";
+            default -> throw ApiException.neispravno("Nedopušteni smjer sortiranja.");
+        };
+        default -> throw ApiException.neispravno("Nedopušteno polje za sortiranje.");
+    };
 
-    String sql = switch (stupac) {
-    case "ime" ->
-            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY ime ";
-    case "prezime" ->
-            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY prezime ";
-    case "specijalizacija" ->
-            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY specijalizacija ";
-    default -> throw new IllegalStateException("Neočekivano polje za sortiranje.");
-};
+    return jdbc.query(sql, MAPPER);
+}
 
-sql += redoslijed;
-
-return jdbc.query(sql, MAPPER);
-    }
 }

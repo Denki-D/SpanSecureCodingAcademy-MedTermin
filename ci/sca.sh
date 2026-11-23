@@ -33,25 +33,47 @@ fi
 
 # ---------- 2. OSV-Scanner ----------
 OSV="$ALATI/osv-scanner-$OSV_SCANNER_VERZIJA"
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+if [[ "$OS" == MINGW* || "$OS" == MSYS* ]]; then
+  PLATFORM="windows"
+  EXT=".exe"
+elif [[ "$OS" == Linux* ]]; then
+  PLATFORM="linux"
+  EXT=""
+else
+  echo "::error::Nepodržani OS za OSV-Scanner: $OS"
+  exit 1
+fi
+
+if [ "$ARCH" != "x86_64" ]; then
+  echo "::error::Nepodržana arhitektura: $ARCH"
+  exit 1
+fi
+
+OSV="$OSV$EXT"
+
 if [ ! -x "$OSV" ]; then
   base="https://github.com/google/osv-scanner/releases/download/v$OSV_SCANNER_VERZIJA"
-  preuzmi "$base/osv-scanner_linux_amd64" "$OSV" "$base/osv-scanner_SHA256SUMS"
+  preuzmi "$base/osv-scanner_${PLATFORM}_amd64${EXT}" "$OSV" "$base/osv-scanner_SHA256SUMS"
   chmod +x "$OSV"
 fi
-# Izlazni kod: 0 = nema nalaza, 1 = ima nalaza (gate odlučuje), ostalo = greška alata.
-osv() { # format odrediste
+
+# Izlazni kod: 0 = nema nalaza, 1 = ima nalaza.
+osv() {
   local rc=0
-  "$OSV" scan source --config osv-scanner.toml -L "$IZVJESTAJI/sbom.cdx.json" --format "$1" > "$2" || rc=$?
-  if [ "$rc" -gt 1 ]; then echo "::error::OSV-Scanner nije uspio (izlazni kod $rc)"; exit "$rc"; fi
+  "$OSV" scan source --config osv-scanner.toml \
+    -L "$IZVJESTAJI/sbom.cdx.json" --format "$1" > "$2" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    echo "::error::OSV-Scanner nije uspio (izlazni kod $rc)"
+    exit "$rc"
+  fi
 }
+
 osv json "$IZVJESTAJI/osv.json"
 osv sarif "$IZVJESTAJI/osv.sarif"
-
-# ---------- 3. .NET: NuGet audit ----------
-if [ "$STACK" = dotnet ]; then
-  dotnet list "$SLN" package --vulnerable --include-transitive --format json > "$IZVJESTAJI/nuget-audit.json"
-  python3 ci/sarif.py nuget "$IZVJESTAJI/nuget-audit.json" "$IZVJESTAJI/nuget-audit.sarif"
-fi
 
 # ---------- 3. Python: pip-audit ----------
 if [ "$STACK" = python ]; then

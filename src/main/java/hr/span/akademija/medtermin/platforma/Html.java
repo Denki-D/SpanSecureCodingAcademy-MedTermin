@@ -1,6 +1,8 @@
+
 package hr.span.akademija.medtermin.platforma;
 
 import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.util.HtmlUtils;
@@ -8,7 +10,8 @@ import org.springframework.web.util.HtmlUtils;
 /** Jednostavne HTML stranice (početna, prijava, promjena lozinke). */
 public final class Html {
 
-    public static final MediaType TEXT_HTML_UTF8 = new MediaType("text", "html", StandardCharsets.UTF_8);
+    public static final MediaType TEXT_HTML_UTF8 =
+            new MediaType("text", "html", StandardCharsets.UTF_8);
 
     private Html() {
     }
@@ -38,6 +41,23 @@ public final class Html {
     }
 
     public static ResponseEntity<String> odgovor(String html) {
-        return ResponseEntity.ok().contentType(TEXT_HTML_UTF8).body(html);
+        return ResponseEntity.ok()
+                .contentType(TEXT_HTML_UTF8)
+                .header("X-Frame-Options", "DENY")
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Security-Policy",
+                        "default-src 'self'; "
+                        + "style-src 'self' 'unsafe-inline'; "
+                        + "script-src 'self'; "
+                        + "img-src 'self' data:; "
+                        + "font-src 'self'; "
+                        + "object-src 'none'; "
+                        + "base-uri 'self'; "
+                        + "frame-ancestors 'none'; "
+                        + "form-action 'self'")
+                .header("Permissions-Policy",
+                        "camera=(), microphone=(), geolocation=()")
+                .header("Cross-Origin-Resource-Policy", "same-origin")
+                .body(html);
     }
 }

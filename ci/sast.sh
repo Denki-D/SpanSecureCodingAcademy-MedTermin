@@ -16,15 +16,26 @@ elif [ "$STACK" = python ]; then
 else
   SEMGREP_PRAVILA="${SEMGREP_PRAVILA:-p/owasp-top-ten p/csharp ci/semgrep}"
 fi
-if [ ! -x "$ALATI/semgrep/bin/semgrep" ]; then
+if [ ! -f "$ALATI/semgrep/pyvenv.cfg" ]; then
   python3 -m venv "$ALATI/semgrep"
-  "$ALATI/semgrep/bin/pip" install -q "semgrep==$SEMGREP_VERZIJA"
+fi
+
+if [ -f "$ALATI/semgrep/Scripts/python.exe" ]; then
+  SEMGREP_BIN="$ALATI/semgrep/Scripts/semgrep.exe"
+  SEMGREP_PIP="$ALATI/semgrep/Scripts/pip.exe"
+else
+  SEMGREP_BIN="$ALATI/semgrep/bin/semgrep"
+  SEMGREP_PIP="$ALATI/semgrep/bin/pip"
+fi
+
+if [ ! -x "$SEMGREP_BIN" ]; then
+  "$SEMGREP_PIP" install -q "semgrep==$SEMGREP_VERZIJA"
 fi
 args=()
 for p in $SEMGREP_PRAVILA; do args+=(--config "$p"); done
 echo "Semgrep $SEMGREP_VERZIJA, pravila: $SEMGREP_PRAVILA"
 # Datoteke koje se ne analiziraju: .semgrepignore (testovi, build izlazi, izvještaji).
-"$ALATI/semgrep/bin/semgrep" scan "${args[@]}" --metrics=off --disable-version-check \
+"$SEMGREP_BIN" scan "${args[@]}" --metrics=off --disable-version-check \
   --json-output="$IZVJESTAJI/semgrep.json" --sarif-output="$IZVJESTAJI/semgrep.sarif" .
 
 # ---------- Java: SpotBugs + Find Security Bugs ----------

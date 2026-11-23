@@ -1,3 +1,4 @@
+
 package hr.span.akademija.medtermin.platforma;
 
 import hr.span.akademija.medtermin.platforma.KorisnikService.Korisnik;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-/** HTML stranice: početna, prijava obrascem (postavlja kolačić SESSION) i promjena lozinke tokenom. */
+/** HTML stranice: početna, prijava obrascem i promjena lozinke tokenom. */
 @Controller
 public class PrijavaController {
 
@@ -39,67 +40,108 @@ public class PrijavaController {
                 <li><a href="/api/health">Stanje sustava</a></li>
                 </ul>
                 """.formatted(Html.escape(postavke.naziv()));
+
         return Html.odgovor(Html.stranica(postavke.naziv(), tijelo));
     }
 
     @GetMapping("/prijava")
     public ResponseEntity<String> obrazac(@RequestParam(required = false) String returnUrl) {
-        return Html.odgovor(obrazacPrijave(returnUrl, null));
+        return Html.odgovor(
+                obrazacPrijave(returnUrl, null, tokeni.izdajTokenPrijave()));
     }
 
     @PostMapping("/prijava")
-    public ResponseEntity<String> prijava(@RequestParam(required = false) String username,
-                                          @RequestParam(required = false) String password,
-                                          @RequestParam(required = false) String returnUrl) {
-        Optional<Korisnik> korisnik = korisnici.prijava(new PrijavaZahtjev(username, password));
-        if (korisnik.isEmpty()) {
-            return Html.odgovor(obrazacPrijave(returnUrl, "Neispravno korisničko ime ili lozinka."));
+    public ResponseEntity<String> prijava(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String password,
+            @RequestParam(required = false) String returnUrl,
+            @RequestParam(required = false) String csrfToken) {
+
+        if (!tokeni.provjeriTokenPrijave(csrfToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Nevaljan CSRF token.");
         }
+
+        Optional<Korisnik> korisnik =
+                korisnici.prijava(new PrijavaZahtjev(username, password));
+
+        if (korisnik.isEmpty()) {
+            return Html.odgovor(obrazacPrijave(
+                    returnUrl,
+                    "Neispravno korisničko ime ili lozinka.",
+                    tokeni.izdajTokenPrijave()));
+        }
+
         String token = tokeni.izdaj(korisnik.get().prijavljeni());
+        String csrf = tokeni.izdajCsrf(token);
+
         ResponseCookie kolacic = ResponseCookie.from(AuthFilter.KOLACIC, token)
                 .httpOnly(true)
                 .sameSite("Lax")
                 .path("/")
                 .build();
+
+        ResponseCookie csrfKolacic = ResponseCookie.from("XSRF-TOKEN", csrf)
+                .httpOnly(false)
+                .sameSite("Lax")
+                .path("/")
+                .build();
+
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, odrediste(returnUrl))
-                .header(HttpHeaders.SET_COOKIE, kolacic.toString())
+                .header(HttpHeaders.SET_COOKIE,
+                        kolacic.toString(), csrfKolacic.toString())
                 .build();
     }
 
     @GetMapping("/reset")
-    public ResponseEntity<String> obrazacZaLozinku(@RequestParam(required = false) String token) {
+    public ResponseEntity<String> obrazacZaLozinku(
+            @RequestParam(required = false) String token) {
         return Html.odgovor(obrazacNoveLozinke(token, null));
     }
 
     @PostMapping("/reset")
-    public ResponseEntity<String> novaLozinka(@RequestParam(required = false) String token,
-                                              @RequestParam(required = false) String novaLozinka) {
+    public ResponseEntity<String> novaLozinka(
+            @RequestParam(required = false) String token,
+            @RequestParam(required = false) String novaLozinka) {
+
         boolean promijenjena;
+
         try {
             promijenjena = reset.postaviNovuLozinku(token, novaLozinka);
         } catch (ApiException e) {
             return Html.odgovor(obrazacNoveLozinke(token, e.getMessage()));
         }
+
         if (!promijenjena) {
-            return Html.odgovor(obrazacNoveLozinke(token, "Token nije valjan ili je istekao."));
+            return Html.odgovor(obrazacNoveLozinke(
+                    token, "Token nije valjan ili je istekao."));
         }
-        return Html.odgovor(Html.stranica("Lozinka je promijenjena",
+
+        return Html.odgovor(Html.stranica(
+                "Lozinka je promijenjena",
                 "<h1>Lozinka je promijenjena</h1>\n<p><a href=\"/prijava\">Prijava</a></p>"));
     }
 
-    private String obrazacPrijave(String returnUrl, String poruka) {
+    private String obrazacPrijave(
+            String returnUrl, String poruka, String csrfToken) {
+
         String tijelo = """
                 <h1>Prijava</h1>
                 %s
                 <form method="post" action="/prijava">
+                <input type="hidden" name="csrfToken" value="%s">
                 <label>Korisničko ime <input name="username" autocomplete="username" required></label>
                 <label>Lozinka <input name="password" type="password" autocomplete="current-password" required></label>
                 <input type="hidden" name="returnUrl" value="%s">
                 <p><button type="submit">Prijavi se</button></p>
                 </form>
-                """.formatted(poruka == null ? "" : "<p class=\"poruka\">" + Html.escape(poruka) + "</p>",
+                """.formatted(
+                poruka == null ? "" :
+                        "<p class=\"poruka\">" + Html.escape(poruka) + "</p>",
+                Html.escape(csrfToken),
                 Html.escape(returnUrl));
+
         return Html.stranica("Prijava – " + postavke.naziv(), tijelo);
     }
 
@@ -112,8 +154,11 @@ public class PrijavaController {
                 <label>Nova lozinka <input name="novaLozinka" type="password" autocomplete="new-password" required></label>
                 <p><button type="submit">Spremi</button></p>
                 </form>
-                """.formatted(poruka == null ? "" : "<p class=\"poruka\">" + Html.escape(poruka) + "</p>",
+                """.formatted(
+                poruka == null ? "" :
+                        "<p class=\"poruka\">" + Html.escape(poruka) + "</p>",
                 Html.escape(token));
+
         return Html.stranica("Nova lozinka – " + postavke.naziv(), tijelo);
     }
 
@@ -121,10 +166,12 @@ public class PrijavaController {
         if (returnUrl == null || returnUrl.isBlank()) {
             return "/";
         }
+
         boolean lokalniPut = returnUrl.startsWith("/")
                 && !returnUrl.startsWith("//")
                 && returnUrl.indexOf('\\') < 0
                 && returnUrl.chars().noneMatch(Character::isISOControl);
+
         return lokalniPut ? returnUrl : "/";
     }
 }
