@@ -55,9 +55,18 @@ public class LijecnikController {
             default -> throw ApiException.neispravno("Nedopušteni smjer sortiranja.");
         };
 
-        String sql = "SELECT id, ime, prezime, specijalizacija, ordinacija "
-                + "FROM lijecnici ORDER BY " + stupac + " " + redoslijed;
+    String sql = switch (stupac) {
+    case "ime" ->
+            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY ime ";
+    case "prezime" ->
+            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY prezime ";
+    case "specijalizacija" ->
+            "SELECT id, ime, prezime, specijalizacija, ordinacija FROM lijecnici ORDER BY specijalizacija ";
+    default -> throw new IllegalStateException("Neočekivano polje za sortiranje.");
+};
 
-        return jdbc.query(sql, MAPPER);
+sql += redoslijed;
+
+return jdbc.query(sql, MAPPER);
     }
 }

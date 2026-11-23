@@ -34,6 +34,9 @@ public class UvozTermina {
         try {
             DocumentBuilder builder = tvornica().newDocumentBuilder();
             builder.setErrorHandler(new DefaultHandler());
+            builder.setEntityResolver((publicId, systemId) -> {
+    throw new SAXException("Vanjski entiteti nisu dopušteni.");
+});
             dokument = builder.parse(new ByteArrayInputStream(xml));
         } catch (ParserConfigurationException | SAXException | IOException e) {
             throw ApiException.neispravno("Neispravan XML.");
@@ -55,16 +58,37 @@ public class UvozTermina {
         return stavke;
     }
 
-    private static DocumentBuilderFactory tvornica() throws ParserConfigurationException {
-        DocumentBuilderFactory tvornica = DocumentBuilderFactory.newInstance();
-        tvornica.setNamespaceAware(true);
-        tvornica.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        tvornica.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        tvornica.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        tvornica.setXIncludeAware(false);
-        tvornica.setExpandEntityReferences(false);
-        return tvornica;
-    }
+ private static DocumentBuilderFactory tvornica() throws ParserConfigurationException {
+    DocumentBuilderFactory tvornica = DocumentBuilderFactory.newInstance();
+
+    tvornica.setNamespaceAware(true);
+    tvornica.setFeature(
+        javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+    // Zabrani DOCTYPE deklaracije
+    tvornica.setFeature(
+            "http://apache.org/xml/features/disallow-doctype-decl", true);
+
+    // Onemogući vanjske entitete
+    tvornica.setFeature(
+            "http://xml.org/sax/features/external-general-entities", false);
+
+    tvornica.setFeature(
+            "http://xml.org/sax/features/external-parameter-entities", false);
+
+    // Onemogući XInclude i proširivanje entiteta
+    tvornica.setXIncludeAware(false);
+    tvornica.setExpandEntityReferences(false);
+
+    // Zabrani pristup vanjskim DTD-ovima i XML shemama
+    tvornica.setAttribute(
+            javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "");
+
+    tvornica.setAttribute(
+            javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
+    return tvornica;
+}
 
     private static String tekst(Element roditelj, String naziv) {
         String vrijednost = neobavezno(roditelj, naziv);

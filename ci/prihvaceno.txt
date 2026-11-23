@@ -16,3 +16,4 @@
 
 # --- Zajednička platforma T2 projekata (vrijedi za sve domene) ---
 spotbugs | SQL_INJECTION_JDBC | JdbcPomoc.java | | umetni() prima SQL od pozivatelja (prepareStatement + parametri); stvarni SQL na mjestima poziva provjeravaju Semgrep i SpotBugs
+spotbugs | XXE_DOCUMENT | UvozTermina.java | builder.parse | Parser je konfiguriran s FEATURE_SECURE_PROCESSING, zabranom DOCTYPE-a, isključenim vanjskim entitetima i XIncludeom te praznim ACCESS_EXTERNAL_DTD i ACCESS_EXTERNAL_SCHEMA; testovi potvrđuju odbijanje XXE XML-a i uspješno čitanje ispravnog XML-a.
